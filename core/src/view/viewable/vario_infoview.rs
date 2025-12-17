@@ -29,6 +29,7 @@ pub enum LineView {
     WindAndAvgWind,
     SpeedToFly,
     TrueAirSpeed,
+    BatteryVoltage,
     LastElemntNotInUse,
 }
 
@@ -41,6 +42,7 @@ const TOP_LINE_VIEW: &[LineView] = &[
     LineView::TrueAirSpeed,
     LineView::TrueCourse,
     LineView::UtcTime,
+    LineView::BatteryVoltage,
 ];
 
 const BOTTOM_LINE_VIEW: &[LineView] = &[
@@ -52,6 +54,7 @@ const BOTTOM_LINE_VIEW: &[LineView] = &[
     LineView::TrueAirSpeed,
     LineView::TrueCourse,
     LineView::UtcTime,
+    LineView::BatteryVoltage,
     LineView::WindAndAvgWind,
     LineView::WindAndDelta,
 ];
@@ -117,6 +120,7 @@ impl LineView {
             LineView::TrueAirSpeed => "True Air Speed",
             LineView::TrueCourse => "True Course",
             LineView::UtcTime => "UTC Time",
+            LineView::BatteryVoltage => "Battery Voltage",
             LineView::WindAndAvgWind => "Wind, avg Wind",
             LineView::WindAndDelta => "Wind and Delta",
             LineView::None => "None",
@@ -138,6 +142,7 @@ impl LineView {
             LineView::TrueAirSpeed => draw_true_air_speed(display, cm, pos),
             LineView::TrueCourse => draw_true_course(display, cm, pos),
             LineView::UtcTime => draw_utc_time(display, cm, pos),
+            LineView::BatteryVoltage => draw_battery_voltage(display, cm, pos),
             LineView::WindAndAvgWind => draw_wind_and_avg_wind(display, cm, pos),
             LineView::WindAndDelta => draw_wind_and_delta(display, cm, pos),
             LineView::LastElemntNotInUse => Ok(()),
@@ -556,4 +561,30 @@ where
         display,
     )?;
     Ok(())
+}
+
+fn draw_battery_voltage<D>(display: &mut D, cm: &CoreModel, pos: Point) -> Result<(), CoreError>
+where
+    D: DrawTarget<Color = Colors, Error = CoreError> + DrawImage,
+{
+    let voltage = cm.device.supply_voltage;
+    let s = tformat!(4, "{:.1}V", voltage).unwrap();
+
+    let img1 = if voltage > cm.config.battery_good {
+        Some(Image::new(cm.device_const.images.bat_full))
+    } else if voltage > cm.config.battery_low {
+        Some(Image::new(cm.device_const.images.bat_half))
+    } else {
+        Some(Image::new(cm.device_const.images.bat_empty))
+    };
+    let img2 = None;
+    draw_centered_line(
+        display,
+        pos,
+        img1,
+        s.as_str(),
+        img2,
+        &cm.device_const.big_font,
+        cm.palette(),
+    )
 }
