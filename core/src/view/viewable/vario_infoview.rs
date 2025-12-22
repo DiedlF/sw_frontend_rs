@@ -584,6 +584,10 @@ where
         None
     };
     let img2 = None;
+
+    let mut palette = *cm.palette();
+    palette.vario.icon = palette.vario.value;
+
     draw_centered_line(
         display,
         pos,
@@ -591,6 +595,6 @@ where
         s.as_str(),
         img2,
         &cm.device_const.big_font,
-        cm.palette(),
+        &palette,
     )
 }
