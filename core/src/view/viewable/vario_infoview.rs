@@ -568,14 +568,20 @@ where
     D: DrawTarget<Color = Colors, Error = CoreError> + DrawImage,
 {
     let voltage = cm.device.supply_voltage;
-    let s = tformat!(4, "{:.1}V", voltage).unwrap();
+    let s = if voltage > 0.1 {
+        tformat!(6, "{:.1}V", voltage).unwrap()
+    } else {
+        heapless::String::<6>::try_from("---V").unwrap()
+    };
 
     let img1 = if voltage > cm.config.battery_good {
         Some(Image::new(cm.device_const.images.bat_full))
     } else if voltage > cm.config.battery_low {
         Some(Image::new(cm.device_const.images.bat_half))
-    } else {
+    } else if voltage > 0.1 {
         Some(Image::new(cm.device_const.images.bat_empty))
+    } else {
+        None
     };
     let img2 = None;
     draw_centered_line(
