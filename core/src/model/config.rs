@@ -320,7 +320,7 @@ impl Config {
             snd_duty_cycle: 200,
             av2_climb_rate_tc: 30.0,
             av_speed_to_fly_tc: 5.0,
-            av_supply_voltage_tc: 3.0,
+            av_supply_voltage_tc: 5.0,
             theme,
             uuid,
             info1_vario: LineView::None,

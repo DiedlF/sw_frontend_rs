@@ -82,7 +82,10 @@ pub struct CoreController {
     ms: u16,
     last_vario_mode: VarioMode,
     av2_climb_rate: Pt1<Speed>,
+    av_air_mass_stf: Pt1<Speed>,
     av_speed_to_fly: Pt1<Speed>,
+    av_supply_voltage: Pt1<f32>,
+    av_sensor_supply_voltage: Pt1<f32>,
     circle_stats: CircleStats,
     pub nmea_buffer: NmeaBuffer,
     pub scheduler: Scheduler<5>,
@@ -112,10 +115,21 @@ impl CoreController {
             CONTROLLER_TICK_RATE,
             core_model.config.av2_climb_rate_tc,
         );
+        let av_air_mass_stf = Pt1::new(0.0.m_s(), CONTROLLER_TICK_RATE, 3.0);
         let av_speed_to_fly = Pt1::new(
             0.0.m_s(),
             CONTROLLER_TICK_RATE,
             core_model.config.av_speed_to_fly_tc,
+        );
+        let av_supply_voltage = Pt1::new(
+            core_model.device.supply_voltage,
+            CONTROLLER_TICK_RATE,
+            core_model.config.av_supply_voltage_tc,
+        );
+        let av_sensor_supply_voltage = Pt1::new(
+            core_model.sensor.supply_voltage,
+            CONTROLLER_TICK_RATE,
+            core_model.config.av_supply_voltage_tc,
         );
         let mut scheduler = Scheduler::new([
             Tim::new(recalc_polar),
@@ -137,7 +151,10 @@ impl CoreController {
             last_vario_mode: VarioMode::SpeedToFly,
             sw_update: SwUpdateController::new(),
             av2_climb_rate,
+            av_air_mass_stf,
             av_speed_to_fly,
+            av_supply_voltage,
+            av_sensor_supply_voltage,
             circle_stats: CircleStats::default(),
             nmea_buffer: NmeaBuffer::new(),
             scheduler,
@@ -208,6 +225,11 @@ impl CoreController {
         self.ms = time_ms;
     }
 
+    pub fn tick_supply_voltage(&mut self, device_supply_voltage: f32) -> f32 {
+        self.av_supply_voltage.tick(device_supply_voltage);
+        self.av_supply_voltage.value()
+    }
+
     pub fn recalc_glider(&mut self, cm: &mut CoreModel) {
         self.polar.recalc_glider(&cm.glider_data);
     }
@@ -222,14 +244,18 @@ impl CoreController {
             }
         }
 
+        self.av_sensor_supply_voltage.tick(core_model.sensor.supply_voltage);
+        core_model.sensor.supply_voltage = self.av_sensor_supply_voltage.value();
+
         // Calculate speed_to_fly and speed_to_fly_dif
         let climb_rate = core_model.sensor.climb_rate;
         let mc_cready = core_model.config.mc_cready;
         let sink_rate = self.polar.sink_rate(core_model.sensor.airspeed);
+        let air_mass_vertical = climb_rate - sink_rate;
+        self.av_air_mass_stf.tick(air_mass_vertical);
         core_model.calculated.speed_to_fly =
-            self.polar.speed_to_fly(climb_rate - sink_rate, mc_cready);
-        self.av_speed_to_fly
-            .tick(core_model.calculated.speed_to_fly.ias());
+            self.polar.speed_to_fly(self.av_air_mass_stf.value(), mc_cready);
+        self.av_speed_to_fly.tick(core_model.calculated.speed_to_fly.ias());
         core_model.calculated.av_speed_to_fly = self.av_speed_to_fly.value();
         core_model.calculated.speed_to_fly_dif =
             core_model.calculated.av_speed_to_fly - core_model.sensor.airspeed.ias();

@@ -77,7 +77,9 @@ impl DevController {
         match self.tick_cnt {
             1 => {
                 let adc_value: u32 = self.adc.read(&mut self.supply_pin).unwrap();
-                core_model.device.supply_voltage = adc_value as f32 * 0.00050354004;
+                let supply_voltage = adc_value as f32 * 0.00050354004;
+                core_model.device.supply_voltage =
+                    self.core_controller.tick_supply_voltage(supply_voltage);
             }
             2 => {
                 let adc_value: u32 = self.adc.read(&mut self.temperature_pin).unwrap();
