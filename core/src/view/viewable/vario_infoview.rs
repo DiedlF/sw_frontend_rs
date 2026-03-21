@@ -135,7 +135,7 @@ impl LineView {
             LineView::BatteryVoltage => "Battery Voltage",
             LineView::WindAndAvgWind => "Wind, avg Wind",
             LineView::WindAndDelta => "Wind and Delta",
-            LineView::GnssHeadingAcc => "GNSS Head Acc",
+            LineView::GnssHeadingAcc => "GNSS Accuracy",
             LineView::GLoad => "G-Load",
             LineView::CircleDiameter => "Circle Diameter",
             LineView::CircleMaxMin => "Circle Max-Min",
@@ -588,10 +588,12 @@ where
     D: DrawTarget<Color = Colors, Error = CoreError> + DrawImage,
 {
     let acc_deg = cm.sensor.dgps_acc_heading.to_degrees();
-    let s = if acc_deg > 0.001 {
-        tformat!(12, "{:.1}deg", acc_deg).unwrap()
+    let acc_m = cm.sensor.dgps_acc_len.to_m();
+    let acc_cm = acc_m * 100.0;
+    let s = if acc_m > 0.001 || acc_deg > 0.001 {
+        tformat!(20, "{:.0}cm {:.1}deg", acc_cm, acc_deg).unwrap()
     } else {
-        tformat!(12, "--").unwrap()
+        tformat!(20, "--").unwrap()
     };
     let img1 = None;
     let img2 = None;
@@ -636,9 +638,9 @@ where
     draw_centered_line(
         display,
         pos,
-        None,
+        Some(Image::new(cm.device_const.images.spiral)),
         s.as_str(),
-        None,
+        Some(cm.config.unit_height.image(cm)),
         &cm.device_const.big_font,
         cm.palette(),
     )
@@ -660,9 +662,9 @@ where
     draw_centered_line(
         display,
         pos,
-        None,
+        Some(Image::new(cm.device_const.images.spiral)),
         s.as_str(),
-        None,
+        Some(cm.config.unit_vertical_speed.image(cm)),
         &cm.device_const.big_font,
         cm.palette(),
     )

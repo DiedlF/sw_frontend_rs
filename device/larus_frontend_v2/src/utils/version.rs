@@ -3,17 +3,17 @@
 use corelib::{HwVersion, SwVersion};
 
 pub const SW_VERSION: SwVersion = SwVersion {
-    version: [0, 3, 9, 0],
+    version: [0, 3, 9, 6],
 };
 
 #[allow(unused)]
-pub const GIT_COMIT_HASH: &str = "e107b3";
+pub const GIT_COMIT_HASH: &str = "a674646";
 
 #[allow(unused)]
-pub const GIT_COMMIT_TIME: &str = "2025-12-12T09:49:34+01:0";
+pub const GIT_COMMIT_TIME: &str = "2026-03-02T07:41:34+00:00";
 
 #[allow(unused)]
-pub const GIT_TAG_INFO: &str = "v0.3.9";
+pub const GIT_TAG_INFO: &str = "a674646-dirty";
 
 pub const HW_VERSION: HwVersion = HwVersion {
     version: [1, 3, 2, 0],

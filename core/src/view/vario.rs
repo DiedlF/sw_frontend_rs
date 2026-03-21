@@ -49,15 +49,24 @@ where
     Ok(())
 }
 
+#[derive(Clone, Copy, PartialEq)]
+enum BatteryIconState {
+    Full,
+    Half,
+    Empty,
+}
+
 #[derive(PartialEq)]
 pub struct Vario {
     thermal_data: ThermalData,
+    battery_icon_state: BatteryIconState,
 }
 
 impl Vario {
     pub fn new() -> Vario {
         Vario {
             thermal_data: ThermalData::default(),
+            battery_icon_state: BatteryIconState::Full,
         }
     }
 
@@ -98,24 +107,49 @@ impl Vario {
         img_unit.draw(display, sizes.unit_pos, Some(cm.palette().vario.background))?;
 
         // draw battery symbol
-        if cm_1s.device.supply_voltage > cm.config.battery_good {
-            display.draw_img(
+        let voltage = cm.device.supply_voltage;
+        let hysteresis = 0.15_f32;
+        self.battery_icon_state = match self.battery_icon_state {
+            BatteryIconState::Full => {
+                if voltage < cm.config.battery_good - hysteresis {
+                    BatteryIconState::Half
+                } else {
+                    BatteryIconState::Full
+                }
+            }
+            BatteryIconState::Half => {
+                if voltage > cm.config.battery_good + hysteresis {
+                    BatteryIconState::Full
+                } else if voltage < cm.config.battery_low - hysteresis {
+                    BatteryIconState::Empty
+                } else {
+                    BatteryIconState::Half
+                }
+            }
+            BatteryIconState::Empty => {
+                if voltage > cm.config.battery_low + hysteresis {
+                    BatteryIconState::Half
+                } else {
+                    BatteryIconState::Empty
+                }
+            }
+        };
+        match self.battery_icon_state {
+            BatteryIconState::Full => display.draw_img(
                 cm.device_const.images.bat_full,
                 sizes.bat_pos,
                 Some(cm.palette().signal.go),
-            )?;
-        } else if cm_1s.device.supply_voltage < cm.config.battery_low {
-            display.draw_img(
-                cm.device_const.images.bat_empty,
-                sizes.bat_pos,
-                Some(cm.palette().signal.stop),
-            )?;
-        } else {
-            display.draw_img(
+            )?,
+            BatteryIconState::Half => display.draw_img(
                 cm.device_const.images.bat_half,
                 sizes.bat_pos,
                 Some(cm.palette().signal.warning),
-            )?;
+            )?,
+            BatteryIconState::Empty => display.draw_img(
+                cm.device_const.images.bat_empty,
+                sizes.bat_pos,
+                Some(cm.palette().signal.stop),
+            )?,
         }
 
         // draw sat symbol

@@ -132,6 +132,8 @@ pub mod gps {
     pub const ALTITUDE_GEO_SEP: u16 = 3;    // f32 altitude, f32 geo_seperation
     pub const GROUND_TRACK_SPEED: u16 = 4;  // f32 ground_track, f32 ground_speed
     pub const NO_SAT_FIX_TYPE: u16 = 5;     // u8 no sats, u8 sat fix type
+    pub const ACCURACY: u16 = 6;            // f32 horiz acc len [m], f32 heading acc [rad]
+    pub const HEADING: u16 = 7;             // f32 D-GNSS heading [rad]
 }
 
 #[rustfmt::skip]

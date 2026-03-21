@@ -20,6 +20,7 @@ use super::CanConfigId;
 
 impl CoreController {
     pub fn read_can_frame(&mut self, cm: &mut CoreModel, frame: &Frame) {
+        self.debug_can_rx_count = self.debug_can_rx_count.saturating_add(1);
         match frame {
             Frame::Generic(generic_frame) => self.can_frame_read_generic(cm, generic_frame),
             Frame::Specific(specific_frame) => self.can_frame_read_specific(cm, specific_frame),
@@ -355,7 +356,11 @@ impl CoreController {
                     cm.sensor.nick_angle = nick_angle.rad();
                 }
             }
-            sensor::UBATT_CIRCLE_MODE => (), // ignore this datagram
+            sensor::UBATT_CIRCLE_MODE => {
+                if let Some(supply_voltage) = rdr.pop_f32() {
+                    cm.sensor.supply_voltage = supply_voltage;
+                }
+            }
             sensor::SYSTEM_STATE_GIT_TAG => {
                 let system_state = rdr.pop_u32();
                 cm.sensor.horizon_available = (system_state & 0x0001_0000) == 0;
@@ -426,6 +431,33 @@ impl CoreController {
                     1 => cm.sensor.gps_state = GpsState::PosAvail,
                     3 => cm.sensor.gps_state = GpsState::HeadingAvail,
                     _ => cm.sensor.gps_state = GpsState::NoGps,
+                }
+            }
+            gps::ACCURACY => {
+                let mut acc_len_dbg = None;
+                let mut acc_heading_dbg = None;
+                if let Some(acc_len) = rdr.pop_f32() {
+                    cm.sensor.dgps_acc_len = acc_len.m();
+                    acc_len_dbg = Some(acc_len);
+                }
+                if let Some(acc_heading) = rdr.pop_f32() {
+                    cm.sensor.dgps_acc_heading = acc_heading.rad();
+                    acc_heading_dbg = Some(acc_heading);
+                }
+                if let (Some(acc_len), Some(acc_heading)) = (acc_len_dbg, acc_heading_dbg) {
+                    use defmt::trace;
+                    trace!(
+                        "gps acc can len={}m heading={}rad heading={}deg state={}",
+                        acc_len,
+                        acc_heading,
+                        acc_heading * 57.29578_f32,
+                        cm.sensor.gps_state.as_str()
+                    );
+                }
+            }
+            gps::HEADING => {
+                if let Some(heading) = rdr.pop_f32() {
+                    cm.sensor.gps_heading = into_range_0_360(heading.rad());
                 }
             }
             _ => (),

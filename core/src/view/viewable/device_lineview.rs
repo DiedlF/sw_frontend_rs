@@ -37,21 +37,28 @@ pub enum DeviceLineView {
 
     // lines of information (Sensor Box)
     SensorboxVersion = 50,
-    Ias = 51,
-    Tas = 52,
-    Density = 53,
-    Gforce = 54,
-    GpsAltitude = 55,
-    GpsGroundSpeed = 56,
-    GpsTrack = 57,
-    GpsSats = 58,
-    GpsState = 59,
-    NickAngle = 60,
-    Pressure = 61,
-    SlipAngle = 62,
-    TurnRate = 63,
-    HorizonAvailable = 64,
-    GnssAndCompassOk = 65,
+    SensorSupplyVoltage = 51,
+    Ias = 52,
+    Tas = 53,
+    Density = 54,
+    Gforce = 55,
+    GpsAltitude = 56,
+    GpsGroundSpeed = 57,
+    GpsTrack = 58,
+    GpsHeading = 59,
+    GpsSats = 60,
+    GpsState = 61,
+    GpsAccLen = 62,
+    GpsAccHeading = 63,
+    NickAngle = 64,
+    Pressure = 65,
+    SlipAngle = 66,
+    TurnRate = 67,
+    HorizonAvailable = 68,
+    GnssAndCompassOk = 69,
+    StfTarget = 70,
+    StfAverage = 71,
+    StfDelta = 72,
 }
 
 impl DeviceLineView {
@@ -148,6 +155,10 @@ impl DeviceLineView {
                 name: "FW Version: ",
                 value: tformat!(30, "{}", cm.sensor.sw_version.as_string().as_str()).unwrap(),
             },
+            DeviceLineView::SensorSupplyVoltage => LineInfo {
+                name: "Sup Volt: ",
+                value: tformat!(30, "{:.1} V", cm.sensor.supply_voltage).unwrap(),
+            },
             DeviceLineView::Ias => LineInfo {
                 name: "IAS: ",
                 value: tformat!(30, "{:.0} km/h", cm.sensor.airspeed.ias().to_km_h()).unwrap(),
@@ -176,6 +187,14 @@ impl DeviceLineView {
                 name: "GNSS Track: ",
                 value: tformat!(30, "{:.0}°", cm.sensor.gps_track.to_degrees()).unwrap(),
             },
+            DeviceLineView::GpsHeading => LineInfo {
+                name: "GNSS Heading: ",
+                value: if cm.sensor.gps_state == crate::model::GpsState::HeadingAvail {
+                    tformat!(30, "{:.0}°", cm.sensor.gps_heading.to_degrees()).unwrap()
+                } else {
+                    tformat!(30, "-").unwrap()
+                },
+            },
             DeviceLineView::GpsSats => LineInfo {
                 name: "GNSS Sats: ",
                 value: tformat!(30, "{}", cm.sensor.gps_sats).unwrap(),
@@ -183,6 +202,14 @@ impl DeviceLineView {
             DeviceLineView::GpsState => LineInfo {
                 name: "GNSS State: ",
                 value: tformat!(30, "{}", cm.sensor.gps_state.as_str()).unwrap(),
+            },
+            DeviceLineView::GpsAccLen => LineInfo {
+                name: "GNSS Acc: ",
+                value: tformat!(30, "{:.0} cm", cm.sensor.dgps_acc_len.to_m() * 100.0).unwrap(),
+            },
+            DeviceLineView::GpsAccHeading => LineInfo {
+                name: "GNSS HdgAcc: ",
+                value: tformat!(30, "{:.1} °", cm.sensor.dgps_acc_heading.to_degrees()).unwrap(),
             },
             DeviceLineView::NickAngle => LineInfo {
                 name: "Nick Angle: ",
@@ -207,6 +234,18 @@ impl DeviceLineView {
             DeviceLineView::GnssAndCompassOk => LineInfo {
                 name: "GNSS CC ok: ",
                 value: tformat!(30, "{}", cm.sensor.gnss_and_compass_ok).unwrap(),
+            },
+            DeviceLineView::StfTarget => LineInfo {
+                name: "STF tgt: ",
+                value: tformat!(30, "{:.0} km/h", cm.calculated.speed_to_fly.ias().to_km_h()).unwrap(),
+            },
+            DeviceLineView::StfAverage => LineInfo {
+                name: "STF av: ",
+                value: tformat!(30, "{:.0} km/h", cm.calculated.av_speed_to_fly.to_km_h()).unwrap(),
+            },
+            DeviceLineView::StfDelta => LineInfo {
+                name: "STF dif: ",
+                value: tformat!(30, "{:.0} km/h", cm.calculated.speed_to_fly_dif.to_km_h()).unwrap(),
             },
             _ => LineInfo {
                 name: "Error! ",
