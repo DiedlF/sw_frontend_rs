@@ -127,6 +127,9 @@ impl IdleLoop {
                             }
                         }
                     }
+                    IdleEvent::DebugLog(record) => {
+                        let _ = write_debug_log(record);
+                    }
                     IdleEvent::DateTime(date_time) => {
                         // Set date and time for PANIC.LOG
                         if let Some(reset_watch) = ResetWatch::init() {

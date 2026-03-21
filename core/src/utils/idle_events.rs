@@ -8,6 +8,7 @@ pub enum IdleEvent {
     RestoreEepromItems,
     RestoreToSandardProfile,
     SdCardItem(SdCardCmd),
+    DebugLog(DebugLogRecord),
     FeedTheDog,
     SetGain(u8),
     DateTime(DateTime),
@@ -62,6 +63,25 @@ pub enum ResetReason {
 pub enum SdCardCmd {
     SwUpdateAccepted,
     SwUpdateCanceled,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[repr(u8)]
+pub enum DebugLogCode {
+    Stats = 1,
+    NmeaQueueDrop = 2,
+    NmeaParseError = 3,
+    SchedulerOverflow = 4,
+    NmeaTxOverflow = 5,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct DebugLogRecord {
+    pub code: DebugLogCode,
+    pub a: u32,
+    pub b: u32,
+    pub c: u32,
+    pub d: u32,
 }
 
 // This queue transports the configuration PersItems from controller to the idle loop.

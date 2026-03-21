@@ -39,7 +39,7 @@ use crate::{
     system_of_units::{FloatToSpeed, Speed},
     utils::{KeyEvent, PIdleEvents, Pt1},
     CPersistenceItems, CoreModel, DeviceEvent, Editable, Event, IdleEvent, InputPinState,
-    PersistenceItem, SdCardCmd, VarioMode,
+    DebugLogCode, DebugLogRecord, PersistenceItem, SdCardCmd, VarioMode,
 };
 use helpers::nmea_cyclic_200ms;
 
@@ -92,6 +92,12 @@ pub struct CoreController {
     queue_to_idle_task: PIdleEvents,
     queue_from_idle_task: CPersistenceItems,
     p_tx_frames: PTxFrames<MAX_TX_FRAMES>,
+    debug_can_rx_count: u32,
+    debug_nmea_tx_count: u32,
+    debug_nmea_drop_count: u32,
+    debug_nmea_parse_err_count: u32,
+    debug_nmea_tx_overflow_count: u32,
+    debug_scheduler_overflow_count: u32,
 }
 
 impl CoreController {
@@ -141,6 +147,12 @@ impl CoreController {
             queue_to_idle_task,
             queue_from_idle_task,
             p_tx_frames,
+            debug_can_rx_count: 0,
+            debug_nmea_tx_count: 0,
+            debug_nmea_drop_count: 0,
+            debug_nmea_parse_err_count: 0,
+            debug_nmea_tx_overflow_count: 0,
+            debug_scheduler_overflow_count: 0,
         }
     }
 
@@ -161,7 +173,18 @@ impl CoreController {
         while self.ms != time_ms {
             self.ms = self.ms.wrapping_add(1);
             match self.ms % 100 {
-                0 => self.scheduler.tick_100ms().unwrap(), // call scheduler every 100ms
+                0 => {
+                    if self.scheduler.tick_100ms().is_err() {
+                        self.debug_scheduler_overflow_count += 1;
+                        self.debug_log(
+                            DebugLogCode::SchedulerOverflow,
+                            self.ms as u32,
+                            self.debug_scheduler_overflow_count,
+                            0,
+                            0,
+                        );
+                    }
+                } // call scheduler every 100ms
                 1 => {
                     self.tick_100ms(cm); // call 100ms tick routine
                     recalc = true;
@@ -226,6 +249,10 @@ impl CoreController {
 
     pub fn send_idle_event(&mut self, idle_event: IdleEvent) {
         let _ = self.queue_to_idle_task.enqueue(idle_event);
+    }
+
+    pub fn debug_log(&mut self, code: DebugLogCode, a: u32, b: u32, c: u32, d: u32) {
+        self.send_idle_event(IdleEvent::DebugLog(DebugLogRecord { code, a, b, c, d }));
     }
 
     // Event handler for reactions to inputs

@@ -137,8 +137,9 @@ impl RxBuffer {
 }
 
 pub struct TxBuffer {
-    buf: [u8; 82],
+    buf: [u8; 128],
     idx: usize,
+    overflowed: bool,
 }
 
 impl Default for TxBuffer {
@@ -150,13 +151,23 @@ impl Default for TxBuffer {
 impl TxBuffer {
     pub const fn new() -> Self {
         TxBuffer {
-            buf: [0; 82],
+            buf: [0; 128],
             idx: 0,
+            overflowed: false,
         }
     }
 
     pub fn reset(&mut self) {
         self.idx = 0;
+        self.overflowed = false;
+    }
+
+    pub fn overflowed(&self) -> bool {
+        self.overflowed
+    }
+
+    pub fn len(&self) -> usize {
+        self.idx
     }
 
     pub fn finish(&mut self) -> &[u8] {
@@ -177,10 +188,11 @@ impl uWrite for TxBuffer {
         let len = bytes.len();
         let start = self.idx;
 
-        // Silently ignore errors
         if let Some(buf) = self.buf.get_mut(start..start + len) {
             buf.copy_from_slice(bytes);
             self.idx += len;
+        } else {
+            self.overflowed = true;
         }
 
         Ok(())

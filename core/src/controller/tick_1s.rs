@@ -187,6 +187,22 @@ fn process_hardware_pins(cm: &mut CoreModel, cc: &mut CoreController) {
     let _ = cc.scheduler.chain(sync_config_items);
 }
 
+fn log_debug_stats(_cm: &mut CoreModel, cc: &mut CoreController) {
+    cc.debug_log(
+        crate::DebugLogCode::Stats,
+        cc.debug_can_rx_count,
+        cc.debug_nmea_tx_count,
+        cc.debug_nmea_drop_count | (cc.debug_nmea_tx_overflow_count << 16),
+        cc.debug_nmea_parse_err_count | (cc.debug_scheduler_overflow_count << 16),
+    );
+    cc.debug_can_rx_count = 0;
+    cc.debug_nmea_tx_count = 0;
+    cc.debug_nmea_drop_count = 0;
+    cc.debug_nmea_tx_overflow_count = 0;
+    cc.debug_nmea_parse_err_count = 0;
+    cc.debug_scheduler_overflow_count = 0;
+}
+
 fn sync_config_items(cm: &mut CoreModel, cc: &mut CoreController) {
     // Only if frontend is can bus master
     if cm.control.is_can_master {
@@ -222,4 +238,5 @@ fn sync_config_items(cm: &mut CoreModel, cc: &mut CoreController) {
             );
         }
     }
+    let _ = cc.scheduler.chain(log_debug_stats);
 }
