@@ -267,7 +267,7 @@ impl Default for SpeedToFlyControl {
     fn default() -> Self {
         SpeedToFlyControl {
             pin_function: InTogglePinFunction::None,
-            vario_mode: VarioMode::Vario,
+            vario_mode: VarioMode::SpeedToFly,
         }
     }
 }

@@ -134,7 +134,7 @@ impl CoreController {
             gear_alarm_control: GearAlarmControl::default(),
             sound_control: SoundControl::default(),
             ms: 0,
-            last_vario_mode: VarioMode::Vario,
+            last_vario_mode: VarioMode::SpeedToFly,
             sw_update: SwUpdateController::new(),
             av2_climb_rate,
             av_speed_to_fly,
