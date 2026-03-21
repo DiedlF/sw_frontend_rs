@@ -1,4 +1,4 @@
-#!../.venv/bin/python
+#!/usr/bin/env python3
 
 import os
 
@@ -45,8 +45,11 @@ except Exception as e:
         build = 0
 
     except Exception as e:
-        print("Something went wrong getting the TAG version information!: ", e)
-        sys.exit(1)
+        print("No semver tag found; falling back to 0.0.0.0 for local build metadata:", e)
+        first = 0
+        second = 0
+        third = 0
+        build = 0
 
 print("get version...")
 with open("tex/version.tex", "w") as f:

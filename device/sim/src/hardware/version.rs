@@ -3,7 +3,7 @@
 use corelib::{HwVersion, SwVersion};
 
 pub const SW_VERSION: SwVersion = SwVersion {
-    version: [0, 3, 9, 0],
+    version: [0, 3, 9, 1],
 };
 
 #[allow(unused)]

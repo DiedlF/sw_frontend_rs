@@ -27,3 +27,28 @@ The following systems and hardware variants are currently supported. Installatio
 
 The software is written in the Rust programming language.
 
+Build and pack process used in this workspace
+--------------------------------------------
+
+For the current Larus workflow we build and pack only the **Larus 57mm V2 Frontend**.
+The V1 frontend and the simulator are not part of the normal packaging flow.
+
+Version numbers are set **manually on request** before packaging. They are not taken from the
+current git tag automatically for this workflow.
+
+Practical release workflow for frontend binaries:
+
+1. Set the requested frontend version number manually in the V2 device files.
+   - `device/larus_frontend_v2/src/utils/version.rs`
+   - `device/larus_frontend_v2/pack.toml`
+   - `device/larus_frontend_v2/Cargo.toml`
+2. Build and pack **only** `device/larus_frontend_v2`.
+3. Publish the generated `*.bin` and `*.elf` artifacts for V2.
+
+Example artifact names:
+- `larus_frontend_v2_v0-3-9-2.bin`
+- `larus_frontend_v2_v0-3-9-2.elf`
+
+The helper scripts in this repository can still derive versions from git tags, but this is not the
+process currently used for the Larus release packaging in this workspace.
+

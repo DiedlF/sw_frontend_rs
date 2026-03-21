@@ -1,4 +1,4 @@
-#!../../.venv/bin/python
+#!/usr/bin/env python3
 
 import subprocess
 import re
@@ -40,12 +40,18 @@ except Exception as e:
         build = 0
 
     except Exception as e:
-        print("Something went wrong getting the TAG version information!: ", e)
-        sys.exit(1)
+        print("No semver tag found; falling back to 0.0.0.0 for local build metadata:", e)
+        first = 0
+        second = 0
+        third = 0
+        build = 0
 
-git_hash = subprocess.check_output("git log -1 --format=%h", shell=True).decode('utf-8')[:-2]
-git_time = subprocess.check_output("git show --no-patch --pretty=%cI", shell=True).decode('utf-8')[:-2]
-git_tag = subprocess.check_output("git describe --tags", shell=True).decode('utf-8')[:-1]
+git_hash = subprocess.check_output("git log -1 --format=%h", shell=True).decode('utf-8').strip()
+git_time = subprocess.check_output("git show --no-patch --pretty=%cI", shell=True).decode('utf-8').strip()
+try:
+    git_tag = subprocess.check_output("git describe --tags", shell=True, stderr=subprocess.DEVNULL).decode('utf-8').strip()
+except subprocess.CalledProcessError:
+    git_tag = version_string.strip()
 
 print('sw_version: ', f'{first}-{second}-{third}-{build}')
 print('git_hash:   ', git_hash)
@@ -53,7 +59,19 @@ print('git_time:   ', git_time)
 print('git_tag:    ', git_tag)
 
 
-VERSION_FILE = 'src/hardware/version.rs'
+print('create:      pack.toml')
+with open("scripts/template_pack.toml", "r") as file:
+    content = file.read()
+
+content = content \
+    .replace('@sw_version@', f'{first}.{second}.{third}.{build}') \
+    .replace('@sw_version_fn@', f'{first}-{second}-{third}-{build}')
+
+with open("pack.toml", "w") as file:
+    file.write(content)
+
+
+VERSION_FILE = 'src/utils/version.rs'
 print("create      ", VERSION_FILE)
 with open("scripts/template_version.rs", "r") as file:
     content = file.read()
