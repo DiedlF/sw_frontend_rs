@@ -1,5 +1,4 @@
 use core::f32::consts::PI;
-use micromath::F32Ext;
 
 const BINS: usize = 24;
 const TWO_PI: f32 = 2.0 * PI;
@@ -41,7 +40,13 @@ impl CircleStats {
     }
 
     fn idx(alpha: f32) -> usize {
-        let a = alpha.rem_euclid(TWO_PI);
+        let mut a = alpha;
+        while a < 0.0 {
+            a += TWO_PI;
+        }
+        while a >= TWO_PI {
+            a -= TWO_PI;
+        }
         ((a / TWO_PI) * BINS as f32) as usize
     }
 

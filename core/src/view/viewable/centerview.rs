@@ -186,7 +186,8 @@ where
         let dx = (sizes.vario.ta_circle_radius - glider_img.width() / 2) as i32;
         sizes.display.center + Point::new(dx, -dy)
     };
-    glider_img.draw(display, p_gld, Some(cm.palette().vario.scale))
+    glider_img.draw(display, p_gld, Some(cm.palette().vario.scale))?;
+    draw_thermal_shift_arrow(display, cm, rotation)
 }
 
 fn draw_thermal_assitant2<D>(
@@ -251,7 +252,45 @@ where
         let dx = (sizes.vario.ta_circle_radius - glider_img.width() / 2) as i32;
         sizes.display.center + Point::new(dx, -dy)
     };
-    glider_img.draw(display, p_gld, Some(cm.palette().vario.scale))
+    glider_img.draw(display, p_gld, Some(cm.palette().vario.scale))?;
+    draw_thermal_shift_arrow(display, cm, rotation)
+}
+
+fn draw_thermal_shift_arrow<D>(
+    display: &mut D,
+    cm: &CoreModel,
+    rotation: f32,
+) -> Result<(), CoreError>
+where
+    D: DrawTarget<Color = Colors, Error = CoreError> + DrawImage,
+{
+    if !cm.calculated.thermal_shift_valid {
+        return Ok(());
+    }
+
+    let east = cm.calculated.thermal_shift_east_m;
+    let north = cm.calculated.thermal_shift_north_m;
+    let world_alpha = east.atan2(north);
+    let display_alpha = world_alpha + rotation;
+    let len = clamp(
+        (cm.calculated.thermal_shift_distance.to_m() * 0.35) as i32,
+        8,
+        (cm.device_const.sizes.vario.ta_circle_radius as i32).saturating_sub(6),
+    );
+    let mut arrow = Arrow::new(len, cm.device_const.sizes.display.center);
+    let color = if cm.calculated.thermal_shift_confidence > 0.6 {
+        cm.palette().vario.therm_ass_best
+    } else {
+        cm.palette().vario.scale
+    };
+    arrow.rotate(display_alpha).draw_styled(
+        PrimitiveStyleBuilder::new()
+            .fill_color(color)
+            .stroke_color(cm.palette().vario.scale)
+            .stroke_width(1)
+            .build(),
+        display,
+    )
 }
 
 fn draw_and_calc_wind_basics<D>(

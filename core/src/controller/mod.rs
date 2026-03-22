@@ -3,6 +3,7 @@ pub use helpers::{
     can_frame::*,
     can_ids::{audio_legacy, frontend_legacy, sensor_legacy, GenericId, SpecialId},
     CanActive, CanConfigId, CircleStats, IntToDuration, NmeaBuffer, RemoteConfig, Scheduler, Tim,
+    ThermalCenterTracker,
 };
 pub(crate) use helpers::{
     DrainControl, FlashControl, GearAlarmControl, GearPins, InPinFunction, InTogglePinFunction,
@@ -35,8 +36,8 @@ use crate::{
     basic_config::{CONTROLLER_TICK_RATE, MAX_TX_FRAMES},
     common::PTxFrames,
     flight_physics::Polar,
-    model::{DataSource, DisplayActive, EditMode, VarioModeControl},
-    system_of_units::{FloatToSpeed, Speed},
+    model::{DataSource, DisplayActive, EditMode, FlyMode, VarioModeControl},
+    system_of_units::{FloatToLength, FloatToSpeed, Speed},
     utils::{KeyEvent, PIdleEvents, Pt1},
     CPersistenceItems, CoreModel, DeviceEvent, Editable, Event, IdleEvent, InputPinState,
     DebugLogCode, DebugLogRecord, PersistenceItem, SdCardCmd, VarioMode,
@@ -87,6 +88,7 @@ pub struct CoreController {
     av_supply_voltage: Pt1<f32>,
     av_sensor_supply_voltage: Pt1<f32>,
     circle_stats: CircleStats,
+    thermal_center: ThermalCenterTracker,
     pub nmea_buffer: NmeaBuffer,
     pub scheduler: Scheduler<5>,
     pub pers_vals: FnvIndexMap<PersistenceId, PersistenceItem, MAX_PERS_IDS>,
@@ -156,6 +158,7 @@ impl CoreController {
             av_supply_voltage,
             av_sensor_supply_voltage,
             circle_stats: CircleStats::default(),
+            thermal_center: ThermalCenterTracker::default(),
             nmea_buffer: NmeaBuffer::new(),
             scheduler,
             nmea_vals: FnvIndexSet::new(),
@@ -259,6 +262,14 @@ impl CoreController {
         core_model.calculated.av_speed_to_fly = self.av_speed_to_fly.value();
         core_model.calculated.speed_to_fly_dif =
             core_model.calculated.av_speed_to_fly - core_model.sensor.airspeed.ias();
+
+        let is_circling = core_model.control.fly_mode == FlyMode::Circling;
+        let thermal_shift = self.thermal_center.update(core_model, is_circling);
+        core_model.calculated.thermal_shift_east_m = thermal_shift.east_m;
+        core_model.calculated.thermal_shift_north_m = thermal_shift.north_m;
+        core_model.calculated.thermal_shift_distance = thermal_shift.distance_m.m();
+        core_model.calculated.thermal_shift_confidence = thermal_shift.confidence;
+        core_model.calculated.thermal_shift_valid = thermal_shift.valid;
 
         let can_frame = core_model.can_frame_avg_climb_rates();
         let _ = self.p_tx_frames.enqueue(can_frame); // ignore when queue is full
