@@ -630,15 +630,15 @@ where
     D: DrawTarget<Color = Colors, Error = CoreError> + DrawImage,
 {
     let s = if cm.calculated.circle_diameter_valid {
-        tformat!(8, "{}", cm.config.unit_height.value_str(cm.calculated.circle_diameter).as_str())
+        tformat!(10, "⌀{}", cm.config.unit_height.value_str(cm.calculated.circle_diameter).as_str())
             .unwrap()
     } else {
-        tformat!(8, "--").unwrap()
+        tformat!(10, "⌀--").unwrap()
     };
     draw_centered_line(
         display,
         pos,
-        Some(Image::new(cm.device_const.images.spiral)),
+        None,
         s.as_str(),
         Some(cm.config.unit_height.image(cm)),
         &cm.device_const.big_font,
@@ -651,18 +651,18 @@ where
     D: DrawTarget<Color = Colors, Error = CoreError> + DrawImage,
 {
     let s = if cm.calculated.circle_max_min_valid {
-        tformat!(10, "{}", cm.config
+        tformat!(12, "Δ{}", cm.config
             .unit_vertical_speed
             .value_str(cm.calculated.circle_max_min_last)
             .as_str())
         .unwrap()
     } else {
-        tformat!(10, "--").unwrap()
+        tformat!(12, "Δ--").unwrap()
     };
     draw_centered_line(
         display,
         pos,
-        Some(Image::new(cm.device_const.images.spiral)),
+        None,
         s.as_str(),
         Some(cm.config.unit_vertical_speed.image(cm)),
         &cm.device_const.big_font,
