@@ -165,8 +165,9 @@ where
     for _cnt in 0..THERMAL_DATA_CNT {
         let (fill_color, delta_climb) = thermal_data.get_dotted_item(pcoord.alpha, cm);
         let center = pcoord.to_xy(1.0, rotation) + sizes.display.center;
+        let lift_strength = delta_climb.max(0.0);
         let diameter = clamp(
-            (delta_climb.abs() * 10.0) as u32,
+            (lift_strength * 10.0) as u32,
             sizes.vario.ta_point_diameter / 3,
             sizes.vario.ta_point_diameter,
         );
