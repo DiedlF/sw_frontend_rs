@@ -211,7 +211,14 @@ pub fn restore_item(cc: &mut CoreController, cm: &mut CoreModel, item: Persisten
     match item.id {
         PersistenceId::Volume => cm.config.volume = item.to_i8(),
         PersistenceId::McCready => cm.config.mc_cready = Speed::from_m_s(item.to_f32()),
-        PersistenceId::WaterBallast => cm.glider_data.water_ballast = Mass::from_kg(item.to_f32()),
+        PersistenceId::WaterBallast => {
+            let val = item.to_f32();
+            cm.glider_data.water_ballast = if val.is_finite() && val >= 0.0 {
+                Mass::from_kg(val)
+            } else {
+                Mass::from_kg(0.0)
+            }
+        }
         PersistenceId::PilotWeight => cm.glider_data.pilot_weight = Mass::from_kg(item.to_f32()),
         PersistenceId::Glider => {
             let raw_idx = item.to_i32();

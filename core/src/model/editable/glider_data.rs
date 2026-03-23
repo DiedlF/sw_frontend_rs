@@ -76,7 +76,8 @@ impl EditableFuncs for WaterBallast {
     }
 
     fn content(cm: &mut CoreModel, _cc: &mut CoreController) -> Content {
-        Content::F32(Some(cm.glider_data.water_ballast.to_kg()))
+        let val = cm.glider_data.water_ballast.to_kg();
+        Content::F32(Some(if val.is_finite() { val.max(0.0) } else { 0.0 }))
     }
 
     fn params(cm: &CoreModel) -> Params {
@@ -93,6 +94,7 @@ impl EditableFuncs for WaterBallast {
 
     fn set_content(cm: &mut CoreModel, cc: &mut CoreController, content: Content) {
         if let Content::F32(Some(val)) = content {
+            let val = if val.is_finite() { val.max(0.0) } else { 0.0 };
             persist::persist_set(
                 cc,
                 cm,

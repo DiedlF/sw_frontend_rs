@@ -50,6 +50,9 @@ fn edit_f32_content(
 ) {
     if let Content::F32(opt_val) = cm.control.editor.content {
         if let Some(mut val) = opt_val {
+            if !val.is_finite() {
+                val = params.min;
+            }
             match key_event {
                 KeyEvent::Rotary2Left => val -= params.small_inc,
                 KeyEvent::Rotary2Right => val += params.small_inc,

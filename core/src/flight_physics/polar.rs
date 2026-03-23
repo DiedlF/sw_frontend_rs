@@ -42,11 +42,22 @@ impl GliderData {
     }
 
     pub fn ballast_fraction(&self) -> f32 {
-        self.water_ballast.to_kg() / self.basic_glider_data.max_ballast
+        let max_ballast = self.basic_glider_data.max_ballast;
+        let water_ballast = self.water_ballast.to_kg();
+        if !max_ballast.is_finite() || max_ballast <= 0.0 || !water_ballast.is_finite() {
+            0.0
+        } else {
+            (water_ballast / max_ballast).clamp(0.0, 1.0)
+        }
     }
 
     pub fn set_ballast_fraction(&mut self, fraction: f32) {
-        self.water_ballast = (fraction * self.basic_glider_data.max_ballast).kg();
+        let max_ballast = self.basic_glider_data.max_ballast;
+        if !fraction.is_finite() || !max_ballast.is_finite() || max_ballast <= 0.0 {
+            self.water_ballast = 0.0.kg();
+        } else {
+            self.water_ballast = (fraction.clamp(0.0, 1.0) * max_ballast).kg();
+        }
     }
 
     pub fn bugs(&self) -> f32 {
@@ -130,12 +141,26 @@ impl Polar {
 
     /// recalc polar to adopt weight and density changes
     pub fn recalc(&mut self, glider_data: &GliderData, density: Density) {
-        let weight = (glider_data.basic_glider_data.empty_mass.kg()
+        let water_ballast = {
+            let v = glider_data.water_ballast.to_kg();
+            if v.is_finite() { v.max(0.0) } else { 0.0 }
+        };
+        let weight = glider_data.basic_glider_data.empty_mass.kg()
             + glider_data.pilot_weight
-            + glider_data.water_ballast)
-            .to_kg();
-        let ratio_weight = (weight / self.refer.weight).sqrt();
-        self.density_ratio = (Density::AT_NN().0 / density.to_kg_m3()).sqrt();
+            + water_ballast.kg();
+        let weight = weight.to_kg();
+        let refer_weight = if self.refer.weight.is_finite() && self.refer.weight > 1.0 {
+            self.refer.weight
+        } else {
+            weight.max(1.0)
+        };
+        let ratio_weight = (weight / refer_weight).sqrt();
+        let density_kg = density.to_kg_m3();
+        self.density_ratio = if density_kg.is_finite() && density_kg > 0.01 {
+            (Density::AT_NN().0 / density_kg).sqrt()
+        } else {
+            1.0
+        };
         let ratio = ratio_weight * self.density_ratio;
 
         self.curr.a = glider_data.bugs * self.refer.a / ratio;
