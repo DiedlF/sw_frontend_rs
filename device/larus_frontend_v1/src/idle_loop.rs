@@ -119,6 +119,9 @@ impl IdleLoop {
                         trace!("Reset Device");
                         loop {} // Wait until watchdog reset the device
                     }
+                    IdleEvent::DebugLog(record) => {
+                        let _ = write_debug_log(record);
+                    }
                     IdleEvent::Output1(_) | IdleEvent::Output2(_) => (),
                 }
             }
