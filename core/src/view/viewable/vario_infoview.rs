@@ -40,35 +40,35 @@ pub enum LineView {
 const TOP_LINE_VIEW: &[LineView] = &[
     LineView::None,
     LineView::AverageClimbRate,
+    LineView::BatteryVoltage,
+    LineView::CircleDiameter,
+    LineView::CircleMaxMin,
     LineView::DriftAngle,
     LineView::FlightLevel,
+    LineView::GnssHeadingAcc,
+    LineView::GLoad,
     LineView::SpeedToFly,
     LineView::TrueAirSpeed,
     LineView::TrueCourse,
     LineView::UtcTime,
-    LineView::BatteryVoltage,
-    LineView::GnssHeadingAcc,
-    LineView::GLoad,
-    LineView::CircleDiameter,
-    LineView::CircleMaxMin,
 ];
 
 const BOTTOM_LINE_VIEW: &[LineView] = &[
     LineView::None,
     LineView::AverageClimbRate,
+    LineView::BatteryVoltage,
+    LineView::CircleDiameter,
+    LineView::CircleMaxMin,
     LineView::DriftAngle,
     LineView::FlightLevel,
+    LineView::GnssHeadingAcc,
+    LineView::GLoad,
     LineView::SpeedToFly,
     LineView::TrueAirSpeed,
     LineView::TrueCourse,
     LineView::UtcTime,
-    LineView::BatteryVoltage,
     LineView::WindAndAvgWind,
     LineView::WindAndDelta,
-    LineView::GnssHeadingAcc,
-    LineView::GLoad,
-    LineView::CircleDiameter,
-    LineView::CircleMaxMin,
 ];
 
 #[derive(Clone, Copy)]
@@ -136,7 +136,7 @@ impl LineView {
             LineView::WindAndAvgWind => "Wind, avg Wind",
             LineView::WindAndDelta => "Wind and Delta",
             LineView::GnssHeadingAcc => "GNSS Accuracy",
-            LineView::GLoad => "G-Load",
+            LineView::GLoad => "G-Load", 
             LineView::CircleDiameter => "Circle Diameter",
             LineView::CircleMaxMin => "Circle Max-Min",
             LineView::None => "None",
@@ -630,17 +630,16 @@ where
     D: DrawTarget<Color = Colors, Error = CoreError> + DrawImage,
 {
     let s = if cm.calculated.circle_diameter_valid {
-        tformat!(10, "⌀{}", cm.config.unit_height.value_str(cm.calculated.circle_diameter).as_str())
-            .unwrap()
+        cm.config.unit_height.value_str(cm.calculated.circle_diameter)
     } else {
-        tformat!(10, "⌀--").unwrap()
+        heapless::String::<5>::try_from("--").unwrap()
     };
     draw_centered_line(
         display,
         pos,
-        None,
+        Some(Image::new(cm.device_const.images.circle_diameter)),
         s.as_str(),
-        Some(cm.config.unit_height.image(cm)),
+        None,
         &cm.device_const.big_font,
         cm.palette(),
     )
@@ -651,20 +650,18 @@ where
     D: DrawTarget<Color = Colors, Error = CoreError> + DrawImage,
 {
     let s = if cm.calculated.circle_max_min_valid {
-        tformat!(12, "Δ{}", cm.config
+        cm.config
             .unit_vertical_speed
             .value_str(cm.calculated.circle_max_min_last)
-            .as_str())
-        .unwrap()
     } else {
-        tformat!(12, "Δ--").unwrap()
+        heapless::String::<5>::try_from("--").unwrap()
     };
     draw_centered_line(
         display,
         pos,
-        None,
+        Some(Image::new(cm.device_const.images.circle_delta)),
         s.as_str(),
-        Some(cm.config.unit_vertical_speed.image(cm)),
+        None,
         &cm.device_const.big_font,
         cm.palette(),
     )
