@@ -368,7 +368,7 @@ impl CoreController {
                 // git_tag is not used at the moment
             }
             sensor::SD_STATUS => {
-                let flags = rdr.pop_u8();
+                if let Some(flags) = rdr.pop_u8() {
                     cm.sensor.sd_present = (flags & 0x01) != 0;
                     cm.sensor.sd_mounted = (flags & 0x02) != 0;
                     cm.sensor.logging_enabled = (flags & 0x04) != 0;
