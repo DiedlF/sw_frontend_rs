@@ -368,12 +368,11 @@ impl CoreController {
                 // git_tag is not used at the moment
             }
             sensor::SD_STATUS => {
-                if let Some(flags) = rdr.pop_u8() {
-                    cm.sensor.sd_present = (flags & 0x01) != 0;
-                    cm.sensor.sd_mounted = (flags & 0x02) != 0;
-                    cm.sensor.logging_enabled = (flags & 0x04) != 0;
-                    cm.sensor.flight_logging_active = (flags & 0x08) != 0;
-                }
+                let flags = rdr.pop_u8();
+                cm.sensor.sd_present = (flags & 0x01) != 0;
+                cm.sensor.sd_mounted = (flags & 0x02) != 0;
+                cm.sensor.logging_enabled = (flags & 0x04) != 0;
+                cm.sensor.flight_logging_active = (flags & 0x08) != 0;
             }
             sensor::CONFIG_VALUE => {
                 let config_id = rdr.pop_u32();
