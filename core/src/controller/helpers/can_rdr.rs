@@ -367,6 +367,14 @@ impl CoreController {
                 cm.sensor.gnss_and_compass_ok = (system_state & 0x0000_0011) == 0x0000_0011;
                 // git_tag is not used at the moment
             }
+            sensor::SD_STATUS => {
+                let flags = rdr.pop_u8();
+                    cm.sensor.sd_present = (flags & 0x01) != 0;
+                    cm.sensor.sd_mounted = (flags & 0x02) != 0;
+                    cm.sensor.logging_enabled = (flags & 0x04) != 0;
+                    cm.sensor.flight_logging_active = (flags & 0x08) != 0;
+                }
+            }
             sensor::CONFIG_VALUE => {
                 let config_id = rdr.pop_u32();
                 match config_id {

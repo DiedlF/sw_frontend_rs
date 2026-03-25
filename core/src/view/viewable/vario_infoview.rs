@@ -1,6 +1,6 @@
 use crate::{
-    model::DataSource, tformat, Colors, CoreError, CoreModel, DrawImage, FloatToSpeed, Image,
-    Palette,
+    model::{DataSource, GpsState},
+    tformat, Colors, CoreError, CoreModel, DrawImage, FloatToSpeed, Image, Palette, Speed,
 };
 use embedded_graphics::{draw_target::DrawTarget, geometry::Point};
 use num_enum::FromPrimitive;
@@ -34,12 +34,19 @@ pub enum LineView {
     GLoad,
     CircleDiameter,
     CircleMaxMin,
+    BankAngle,
+    SlipAngle,
+    Heading,
+    Track,
+    IndicatedAirSpeed,
+    EquivalentAirspeed,
     LastElemntNotInUse,
 }
 
 const TOP_LINE_VIEW: &[LineView] = &[
     LineView::None,
     LineView::AverageClimbRate,
+    LineView::BankAngle,
     LineView::BatteryVoltage,
     LineView::CircleDiameter,
     LineView::CircleMaxMin,
@@ -47,7 +54,12 @@ const TOP_LINE_VIEW: &[LineView] = &[
     LineView::FlightLevel,
     LineView::GnssHeadingAcc,
     LineView::GLoad,
+    LineView::Heading,
+    LineView::IndicatedAirSpeed,
+    LineView::EquivalentAirspeed,
+    LineView::SlipAngle,
     LineView::SpeedToFly,
+    LineView::Track,
     LineView::TrueAirSpeed,
     LineView::TrueCourse,
     LineView::UtcTime,
@@ -56,6 +68,7 @@ const TOP_LINE_VIEW: &[LineView] = &[
 const BOTTOM_LINE_VIEW: &[LineView] = &[
     LineView::None,
     LineView::AverageClimbRate,
+    LineView::BankAngle,
     LineView::BatteryVoltage,
     LineView::CircleDiameter,
     LineView::CircleMaxMin,
@@ -63,7 +76,12 @@ const BOTTOM_LINE_VIEW: &[LineView] = &[
     LineView::FlightLevel,
     LineView::GnssHeadingAcc,
     LineView::GLoad,
+    LineView::Heading,
+    LineView::IndicatedAirSpeed,
+    LineView::EquivalentAirspeed,
+    LineView::SlipAngle,
     LineView::SpeedToFly,
+    LineView::Track,
     LineView::TrueAirSpeed,
     LineView::TrueCourse,
     LineView::UtcTime,
@@ -139,6 +157,12 @@ impl LineView {
             LineView::GLoad => "G-Load", 
             LineView::CircleDiameter => "Circle Diameter",
             LineView::CircleMaxMin => "Circle Max-Min",
+            LineView::BankAngle => "Bank Angle",
+            LineView::SlipAngle => "Slip Angle",
+            LineView::Heading => "Heading",
+            LineView::Track => "Track",
+            LineView::IndicatedAirSpeed => "Indicated Air Speed",
+            LineView::EquivalentAirspeed => "Equivalent Air Speed",
             LineView::None => "None",
             LineView::LastElemntNotInUse => "",
         }
@@ -165,9 +189,23 @@ impl LineView {
             LineView::GLoad => draw_g_load(display, cm, pos),
             LineView::CircleDiameter => draw_circle_diameter(display, cm, pos),
             LineView::CircleMaxMin => draw_circle_max_min(display, cm, pos),
+            LineView::BankAngle => draw_bank_angle(display, cm, pos),
+            LineView::SlipAngle => draw_slip_angle(display, cm, pos),
+            LineView::Heading => draw_heading(display, cm, pos),
+            LineView::Track => draw_track(display, cm, pos),
+            LineView::IndicatedAirSpeed => draw_indicated_air_speed(display, cm, pos),
+            LineView::EquivalentAirspeed => draw_equivalent_air_speed(display, cm, pos),
             LineView::LastElemntNotInUse => Ok(()),
         }
     }
+}
+
+fn gnss_position_valid(cm: &CoreModel) -> bool {
+    matches!(cm.sensor.gps_state, GpsState::PosAvail | GpsState::HeadingAvail)
+}
+
+fn gnss_heading_valid(cm: &CoreModel) -> bool {
+    matches!(cm.sensor.gps_state, GpsState::HeadingAvail)
 }
 
 fn draw_centered_line<D>(
@@ -244,22 +282,26 @@ fn draw_drift_angle<D>(display: &mut D, cm: &CoreModel, pos: Point) -> Result<()
 where
     D: DrawTarget<Color = Colors, Error = CoreError> + DrawImage,
 {
-    let track = cm.sensor.gps_track.to_degrees();
-    let heading = cm.sensor.euler_yaw.to_degrees();
-    let mut drift_angle = track - heading;
-    if drift_angle.abs() > 360.0 {
-        drift_angle = 0.0
-    }
-    while drift_angle > 180.0 {
-        drift_angle -= 360.0 // t: 355 h 5 => 350 correct -10
-    }
-    while drift_angle < -180.0 {
-        drift_angle += 360.0 // t: 5 h 355 => - 350 correct +10
-    }
-    let s = if drift_angle > 0.0 {
-        tformat!(12, "+{:.0}°", drift_angle).unwrap()
+    let s = if gnss_position_valid(cm) {
+        let track = cm.sensor.gps_track.to_degrees();
+        let heading = cm.sensor.euler_yaw.to_degrees();
+        let mut drift_angle = track - heading;
+        if drift_angle.abs() > 360.0 {
+            drift_angle = 0.0
+        }
+        while drift_angle > 180.0 {
+            drift_angle -= 360.0 // t: 355 h 5 => 350 correct -10
+        }
+        while drift_angle < -180.0 {
+            drift_angle += 360.0 // t: 5 h 355 => - 350 correct +10
+        }
+        if drift_angle > 0.0 {
+            tformat!(12, "+{:.0}°", drift_angle).unwrap()
+        } else {
+            tformat!(12, "{:.0}°", drift_angle).unwrap()
+        }
     } else {
-        tformat!(12, "{:.0}°", drift_angle).unwrap()
+        tformat!(12, "--").unwrap()
     };
 
     let img1 = Some(Image::new(cm.device_const.images.drift_angle));
@@ -341,12 +383,95 @@ where
     )
 }
 
+fn draw_indicated_air_speed<D>(display: &mut D, cm: &CoreModel, pos: Point) -> Result<(), CoreError>
+where
+    D: DrawTarget<Color = Colors, Error = CoreError> + DrawImage,
+{
+    let ias = cm
+        .config
+        .unit_horizontal_speed
+        .value_str(cm.sensor.airspeed.ias());
+    let img2 = Some(cm.config.unit_horizontal_speed.image(cm));
+    draw_centered_line(
+        display,
+        pos,
+        None,
+        ias.as_str(),
+        img2,
+        &cm.device_const.big_font,
+        cm.palette(),
+    )
+}
+
+fn draw_equivalent_air_speed<D>(display: &mut D, cm: &CoreModel, pos: Point) -> Result<(), CoreError>
+where
+    D: DrawTarget<Color = Colors, Error = CoreError> + DrawImage,
+{
+    let g_load = (cm.sensor.g_force.to_m_s2() / 9.81).max(0.0);
+    let ve = cm.sensor.airspeed.ias().to_km_h() * g_load.sqrt();
+    let ve_speed = Speed::from_km_h(ve);
+    let ve_str = cm.config.unit_horizontal_speed.value_str(ve_speed);
+    let img2 = Some(cm.config.unit_horizontal_speed.image(cm));
+    draw_centered_line(
+        display,
+        pos,
+        None,
+        ve_str.as_str(),
+        img2,
+        &cm.device_const.big_font,
+        cm.palette(),
+    )
+}
+
+fn draw_bank_angle<D>(display: &mut D, cm: &CoreModel, pos: Point) -> Result<(), CoreError>
+where
+    D: DrawTarget<Color = Colors, Error = CoreError> + DrawImage,
+{
+    let s = tformat!(8, "{:.0}°", cm.sensor.euler_roll.to_degrees()).unwrap();
+    draw_centered_line(display, pos, None, s.as_str(), None, &cm.device_const.big_font, cm.palette())
+}
+
+fn draw_slip_angle<D>(display: &mut D, cm: &CoreModel, pos: Point) -> Result<(), CoreError>
+where
+    D: DrawTarget<Color = Colors, Error = CoreError> + DrawImage,
+{
+    let s = tformat!(8, "{:.1}°", cm.sensor.slip_angle.to_degrees()).unwrap();
+    draw_centered_line(display, pos, None, s.as_str(), None, &cm.device_const.big_font, cm.palette())
+}
+
+fn draw_heading<D>(display: &mut D, cm: &CoreModel, pos: Point) -> Result<(), CoreError>
+where
+    D: DrawTarget<Color = Colors, Error = CoreError> + DrawImage,
+{
+    let s = if gnss_heading_valid(cm) {
+        tformat!(8, "{:.0}°", cm.sensor.euler_yaw.to_degrees()).unwrap()
+    } else {
+        tformat!(8, "--").unwrap()
+    };
+    draw_centered_line(display, pos, None, s.as_str(), None, &cm.device_const.big_font, cm.palette())
+}
+
+fn draw_track<D>(display: &mut D, cm: &CoreModel, pos: Point) -> Result<(), CoreError>
+where
+    D: DrawTarget<Color = Colors, Error = CoreError> + DrawImage,
+{
+    let s = if gnss_position_valid(cm) {
+        tformat!(8, "{:.0}°", cm.sensor.gps_track.to_degrees()).unwrap()
+    } else {
+        tformat!(8, "--").unwrap()
+    };
+    draw_centered_line(display, pos, None, s.as_str(), None, &cm.device_const.big_font, cm.palette())
+}
+
 fn draw_true_course<D>(display: &mut D, cm: &CoreModel, pos: Point) -> Result<(), CoreError>
 where
     D: DrawTarget<Color = Colors, Error = CoreError> + DrawImage,
 {
-    let tc = cm.sensor.gps_track.to_degrees();
-    let s = tformat!(8, "{:.0}°", tc).unwrap();
+    let s = if gnss_position_valid(cm) {
+        tformat!(8, "{:.0}°", cm.sensor.gps_track.to_degrees()).unwrap()
+    } else {
+        tformat!(8, "--").unwrap()
+    };
 
     let img1 = Some(Image::new(cm.device_const.images.true_course));
     let img2 = None;
@@ -587,11 +712,15 @@ fn draw_gnss_heading_acc<D>(display: &mut D, cm: &CoreModel, pos: Point) -> Resu
 where
     D: DrawTarget<Color = Colors, Error = CoreError> + DrawImage,
 {
-    let acc_deg = cm.sensor.dgps_acc_heading.to_degrees();
-    let acc_m = cm.sensor.dgps_acc_len.to_m();
-    let acc_cm = acc_m * 100.0;
-    let s = if acc_m > 0.001 || acc_deg > 0.001 {
-        tformat!(20, "{:.0}cm {:.1}deg", acc_cm, acc_deg).unwrap()
+    let s = if gnss_position_valid(cm) {
+        let acc_deg = cm.sensor.dgps_acc_heading.to_degrees();
+        let acc_m = cm.sensor.dgps_acc_len.to_m();
+        let acc_cm = acc_m * 100.0;
+        if acc_m > 0.001 || acc_deg > 0.001 {
+            tformat!(20, "{:.0}cm {:.1}deg", acc_cm, acc_deg).unwrap()
+        } else {
+            tformat!(20, "--").unwrap()
+        }
     } else {
         tformat!(20, "--").unwrap()
     };
@@ -639,7 +768,7 @@ where
         pos,
         Some(Image::new(cm.device_const.images.circle_diameter)),
         s.as_str(),
-        None,
+        Some(cm.config.unit_height.image(cm)),
         &cm.device_const.big_font,
         cm.palette(),
     )
@@ -661,7 +790,7 @@ where
         pos,
         Some(Image::new(cm.device_const.images.circle_delta)),
         s.as_str(),
-        None,
+        Some(cm.config.unit_vertical_speed.image(cm)),
         &cm.device_const.big_font,
         cm.palette(),
     )

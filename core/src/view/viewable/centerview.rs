@@ -163,14 +163,18 @@ where
     };
     thermal_data.prepare();
     for _cnt in 0..THERMAL_DATA_CNT {
-        let (fill_color, delta_climb) = thermal_data.get_dotted_item(pcoord.alpha, cm);
+        let (fill_color, delta_climb, max_climb) =
+            thermal_data.get_dotted_item(pcoord.alpha, cm);
         let center = pcoord.to_xy(1.0, rotation) + sizes.display.center;
-        let lift_strength = delta_climb.max(0.0);
-        let diameter = clamp(
-            (lift_strength * 10.0) as u32,
-            sizes.vario.ta_point_diameter / 3,
-            sizes.vario.ta_point_diameter,
-        );
+        let min_diameter = sizes.vario.ta_point_diameter / 3;
+        let max_diameter = sizes.vario.ta_point_diameter;
+        let diameter = if delta_climb <= 0.0 || max_climb <= 0.01 {
+            min_diameter
+        } else {
+            let norm = (delta_climb / max_climb).clamp(0.0, 1.0);
+            let span = (max_diameter - min_diameter) as f32;
+            (min_diameter as f32 + norm * span) as u32
+        };
         Circle::with_center(center, diameter)
             .into_styled(PrimitiveStyle::with_fill(fill_color))
             .draw(display)?;
@@ -277,6 +281,26 @@ where
         8,
         (cm.device_const.sizes.vario.ta_circle_radius as i32).saturating_sub(6),
     );
+    let mut arrow_halo = Arrow::new(len + 6, cm.device_const.sizes.display.center);
+    arrow_halo.rotate(display_alpha).draw_styled(
+        PrimitiveStyleBuilder::new()
+            .fill_color(Colors::Black)
+            .stroke_color(Colors::Black)
+            .stroke_width(4)
+            .build(),
+        display,
+    )?;
+
+    let mut arrow_underlay = Arrow::new(len + 2, cm.device_const.sizes.display.center);
+    arrow_underlay.rotate(display_alpha).draw_styled(
+        PrimitiveStyleBuilder::new()
+            .fill_color(cm.palette().vario.background)
+            .stroke_color(cm.palette().vario.background)
+            .stroke_width(3)
+            .build(),
+        display,
+    )?;
+
     let mut arrow = Arrow::new(len, cm.device_const.sizes.display.center);
     let color = if cm.calculated.thermal_shift_confidence > 0.6 {
         cm.palette().vario.therm_ass_best
@@ -287,7 +311,7 @@ where
         PrimitiveStyleBuilder::new()
             .fill_color(color)
             .stroke_color(cm.palette().vario.scale)
-            .stroke_width(1)
+            .stroke_width(2)
             .build(),
         display,
     )

@@ -120,6 +120,7 @@ pub mod sensor {
     pub const SLIP_PITCH_ANGLE: u16 = 8;    // f32 slip_angle, f32 pitch_angle
     pub const UBATT_CIRCLE_MODE: u16 = 9;   // f32 supply_voltage, u8 circle_mode
     pub const SYSTEM_STATE_GIT_TAG: u16 = 0x0a; // u32 system_state, git_tag
+    pub const SD_STATUS: u16 = 0x0c;        // u8 sd/logging status flags
     pub const CONFIG_VALUE: u16 = 0x0f;     // u32 config_id, f32 value
 }
 

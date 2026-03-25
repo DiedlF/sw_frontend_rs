@@ -66,6 +66,10 @@ pub struct Sensor {
     pub wind_vector: WindVector,
     pub horizon_available: bool,
     pub gnss_and_compass_ok: bool,
+    pub sd_present: bool,
+    pub sd_mounted: bool,
+    pub logging_enabled: bool,
+    pub flight_logging_active: bool,
 }
 
 impl Default for Sensor {
@@ -107,6 +111,10 @@ impl Default for Sensor {
             wind_vector: WindVector::new(0.0.km_h(), 0.0_f32.deg()),
             horizon_available: true,
             gnss_and_compass_ok: false,
+            sd_present: false,
+            sd_mounted: false,
+            logging_enabled: false,
+            flight_logging_active: false,
         }
     }
 }

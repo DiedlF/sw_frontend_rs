@@ -16,6 +16,7 @@ pub struct ThermalData {
 
     best_pos: usize,
     worst_pos: usize,
+    best_positive_value: f32,
 }
 
 impl ThermalData {
@@ -50,6 +51,7 @@ impl ThermalData {
         self.worst_pos = 0;
         let mut best_value = self.climb_data[0];
         let mut worst_value = self.climb_data[0];
+        self.best_positive_value = self.climb_data[0].max(0.0);
         for idx in 1..THERMAL_DATA_CNT {
             if self.climb_data[idx] > best_value {
                 best_value = self.climb_data[idx];
@@ -59,10 +61,13 @@ impl ThermalData {
                 worst_value = self.climb_data[idx];
                 self.worst_pos = idx;
             }
+            if self.climb_data[idx] > self.best_positive_value {
+                self.best_positive_value = self.climb_data[idx];
+            }
         }
     }
 
-    pub fn get_dotted_item(&mut self, alpha: f32, cm: &CoreModel) -> (Colors, f32) {
+    pub fn get_dotted_item(&mut self, alpha: f32, cm: &CoreModel) -> (Colors, f32, f32) {
         let idx = Self::get_idx(alpha);
         let color = if idx == self.best_pos {
             cm.palette().vario.therm_ass_best
@@ -74,7 +79,7 @@ impl ThermalData {
             cm.palette().vario.therm_ass_bad
         };
         let value = self.climb_data[idx];
-        (color, value)
+        (color, value, self.best_positive_value)
     }
 
     pub fn get_spider_item(&mut self, alpha: f32, cm: &CoreModel) -> (Colors, f32) {
@@ -101,6 +106,7 @@ impl Default for ThermalData {
             last_tick: 0,
             best_pos: 0,
             worst_pos: 0,
+            best_positive_value: 0.0,
         }
     }
 }
