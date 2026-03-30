@@ -1,5 +1,5 @@
 use core::str;
-use corelib::{stm32_crc, MetaDataV1, SwVersion, VersionCheck, SIZE_METADATA_V1};
+use corelib::{stm32_crc, EventLogCode, EventLogRecord, MetaDataV1, SwVersion, VersionCheck, SIZE_METADATA_V1};
 use defmt::trace;
 use embedded_sdmmc::{Mode, ShortFileName, VolumeIdx};
 use embedded_storage::nor_flash::NorFlash;
@@ -100,7 +100,15 @@ fn update_available_private(fs: &mut FileSys) -> Option<SwVersion> {
         if crc != meta_data.crc {
             return None; // We should never come here;
         }
-        Some(check.new_sw_version())
+        let version = check.new_sw_version();
+        let _ = write_event_log(EventLogRecord {
+            code: EventLogCode::UpdateFound,
+            a: version.version[0] as u32,
+            b: version.version[1] as u32,
+            c: version.version[2] as u32,
+            d: version.version[3] as u32,
+        });
+        Some(version)
     } else {
         None
     };
@@ -109,8 +117,26 @@ fn update_available_private(fs: &mut FileSys) -> Option<SwVersion> {
 
 pub fn install_and_restart() {
     let meta_data = meta_data();
-    let func = unsafe { core::mem::transmute::<u32, fn()>(meta_data.copy_func) };
-    func();
+    let _ = write_event_log(EventLogRecord {
+        code: EventLogCode::UpdateInstallStart,
+        a: meta_data.new_app,
+        b: meta_data.new_app_len,
+        c: meta_data.new_app_dest,
+        d: meta_data.copy_func,
+    });
+
+    #[cfg(all(target_arch = "arm", target_os = "none"))]
+    {
+        let func_addr = meta_data.copy_func as usize;
+        let func: extern "C" fn() = unsafe { core::mem::transmute(func_addr) };
+        func();
+    }
+
+    #[cfg(not(all(target_arch = "arm", target_os = "none")))]
+    {
+        let _ = meta_data;
+        panic!("install_and_restart is only supported on the embedded ARM target");
+    }
 
     #[allow(clippy::empty_loop)]
     loop {} // We should never come here;

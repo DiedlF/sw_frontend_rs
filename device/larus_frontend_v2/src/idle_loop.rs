@@ -130,10 +130,13 @@ impl IdleLoop {
                     IdleEvent::DebugLog(record) => {
                         let _ = write_debug_log(record);
                     }
+                    IdleEvent::EventLog(record) => {
+                        let _ = write_event_log(record);
+                    }
                     IdleEvent::DateTime(date_time) => {
-                        // Set date and time for PANIC.LOG
+                        // Set date and time for PANIC.LOG, but never overwrite with the default 2000-01-01 fallback
                         if let Some(reset_watch) = ResetWatch::init() {
-                            reset_watch.date_time().clone_from(&date_time);
+                            reset_watch.set_date_time_if_valid(date_time);
                         }
                     }
                     IdleEvent::ResetDevice(_reason) => {

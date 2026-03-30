@@ -353,7 +353,7 @@ impl CoreController {
                     cm.sensor.slip_angle = slip_angle.rad();
                 }
                 if let Some(nick_angle) = rdr.pop_f32() {
-                    cm.sensor.nick_angle = nick_angle.rad();
+                    cm.sensor.nick_angle = into_range_180_180(nick_angle.rad());
                 }
             }
             sensor::UBATT_CIRCLE_MODE => {
@@ -426,10 +426,13 @@ impl CoreController {
             }
             gps::GROUND_TRACK_SPEED => {
                 if let Some(track) = rdr.pop_f32() {
-                    cm.sensor.gps_track = track.rad();
+                    cm.sensor.gps_track = into_range_0_360(track.rad());
                 }
                 if let Some(speed) = rdr.pop_f32() {
                     cm.sensor.gps_ground_speed = speed.m_s();
+                    if cm.sensor.gps_ground_speed < 1.0.km_h() {
+                        cm.sensor.gps_track = 0.0_f32.rad();
+                    }
                 }
             }
             gps::NO_SAT_FIX_TYPE => {

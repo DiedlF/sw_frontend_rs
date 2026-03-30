@@ -40,9 +40,10 @@ use crate::{
     system_of_units::{FloatToLength, FloatToSpeed, Speed},
     utils::{KeyEvent, PIdleEvents, Pt1},
     CPersistenceItems, CoreModel, DeviceEvent, Editable, Event, IdleEvent, InputPinState,
-    DebugLogCode, DebugLogRecord, PersistenceItem, SdCardCmd, VarioMode,
+    DebugLogCode, DebugLogRecord, EventLogCode, EventLogRecord, PersistenceItem, SdCardCmd,
+    VarioMode,
 };
-use helpers::nmea_cyclic_200ms;
+use helpers::{nmea_cyclic_200ms, ThermalLogEventKind};
 
 #[allow(unused_imports)]
 use micromath::F32Ext;
@@ -103,6 +104,8 @@ pub struct CoreController {
     debug_nmea_parse_err_count: u32,
     debug_nmea_tx_overflow_count: u32,
     debug_scheduler_overflow_count: u32,
+    last_logged_fly_mode: crate::FlyMode,
+    last_logged_gps_state: crate::model::GpsState,
 }
 
 impl CoreController {
@@ -173,6 +176,8 @@ impl CoreController {
             debug_nmea_parse_err_count: 0,
             debug_nmea_tx_overflow_count: 0,
             debug_scheduler_overflow_count: 0,
+            last_logged_fly_mode: core_model.control.fly_mode,
+            last_logged_gps_state: core_model.sensor.gps_state,
         }
     }
 
@@ -264,7 +269,17 @@ impl CoreController {
             core_model.calculated.av_speed_to_fly - core_model.sensor.airspeed.ias();
 
         let is_circling = core_model.control.fly_mode == FlyMode::Circling;
-        let thermal_shift = self.thermal_center.update(core_model, is_circling);
+        let thermal_update = self.thermal_center.update(core_model, is_circling);
+        for event in thermal_update.events {
+            let code = match event.kind {
+                ThermalLogEventKind::Reset => EventLogCode::ThermalReset,
+                ThermalLogEventKind::CircleComplete => EventLogCode::ThermalCircleComplete,
+                ThermalLogEventKind::EstimateValid => EventLogCode::ThermalEstimateValid,
+                ThermalLogEventKind::EstimateInvalid => EventLogCode::ThermalEstimateInvalid,
+            };
+            self.event_log(code, event.a, event.b, event.c, event.d);
+        }
+        let thermal_shift = thermal_update.estimate;
         core_model.calculated.thermal_shift_east_m = thermal_shift.east_m;
         core_model.calculated.thermal_shift_north_m = thermal_shift.north_m;
         core_model.calculated.thermal_shift_distance = thermal_shift.distance_m.m();
@@ -290,6 +305,10 @@ impl CoreController {
 
     pub fn debug_log(&mut self, code: DebugLogCode, a: u32, b: u32, c: u32, d: u32) {
         self.send_idle_event(IdleEvent::DebugLog(DebugLogRecord { code, a, b, c, d }));
+    }
+
+    pub fn event_log(&mut self, code: EventLogCode, a: u32, b: u32, c: u32, d: u32) {
+        self.send_idle_event(IdleEvent::EventLog(EventLogRecord { code, a, b, c, d }));
     }
 
     // Event handler for reactions to inputs

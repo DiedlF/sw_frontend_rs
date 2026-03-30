@@ -408,7 +408,11 @@ where
     D: DrawTarget<Color = Colors, Error = CoreError> + DrawImage,
 {
     let g_load = (cm.sensor.g_force.to_m_s2() / 9.81).max(0.0);
-    let ve = cm.sensor.airspeed.ias().to_km_h() * g_load.sqrt();
+    let ve = if g_load > 0.01 {
+        cm.sensor.airspeed.ias().to_km_h() / g_load.sqrt()
+    } else {
+        cm.sensor.airspeed.ias().to_km_h()
+    };
     let ve_speed = Speed::from_km_h(ve);
     let ve_str = cm.config.unit_horizontal_speed.value_str(ve_speed);
     let img2 = Some(cm.config.unit_horizontal_speed.image(cm));
@@ -456,7 +460,7 @@ where
     D: DrawTarget<Color = Colors, Error = CoreError> + DrawImage,
 {
     let s = if gnss_position_valid(cm) {
-        tformat!(8, "{:.0}°", cm.sensor.gps_track.to_degrees()).unwrap()
+        tformat!(8, "{:.0}°", cm.sensor.gps_track.to_degrees().rem_euclid(360.0)).unwrap()
     } else {
         tformat!(8, "--").unwrap()
     };
@@ -468,7 +472,7 @@ where
     D: DrawTarget<Color = Colors, Error = CoreError> + DrawImage,
 {
     let s = if gnss_position_valid(cm) {
-        tformat!(8, "{:.0}°", cm.sensor.gps_track.to_degrees()).unwrap()
+        tformat!(8, "{:.0}°", cm.sensor.gps_track.to_degrees().rem_euclid(360.0)).unwrap()
     } else {
         tformat!(8, "--").unwrap()
     };

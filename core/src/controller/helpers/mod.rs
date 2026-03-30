@@ -15,4 +15,4 @@ pub use hw_pins::*;
 pub use nmea_buffer::NmeaBuffer;
 pub use nmea_handler::nmea_cyclic_200ms;
 pub use scheduler::{IntToDuration, Scheduler, Tim};
-pub use thermal_center::ThermalCenterTracker;
+pub use thermal_center::{ThermalCenterTracker, ThermalLogEventKind};

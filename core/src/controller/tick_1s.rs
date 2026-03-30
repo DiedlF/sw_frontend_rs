@@ -2,8 +2,8 @@ use crate::{
     controller::persist::{persist_set, set_vario_mode},
     model::{GpsState, SystemState, TcrMode, VarioModeControl},
     utils::Variant,
-    CoreController, CoreModel, Echo, FloatToLength, FloatToSpeed, FlyMode, IdleEvent,
-    PersistenceId, VarioMode,
+    CoreController, CoreModel, Echo, EventLogCode, FloatToLength, FloatToSpeed, FlyMode,
+    IdleEvent, PersistenceId, VarioMode,
 };
 use num::clamp;
 
@@ -104,6 +104,17 @@ fn speed_to_fly(cm: &mut CoreModel, cc: &mut CoreController) {
     }
     cm.calculated.circle_hysteresis = hyst;
 
+    if cm.control.fly_mode != cc.last_logged_fly_mode {
+        cc.event_log(
+            EventLogCode::FlyModeChanged,
+            cc.last_logged_fly_mode as u32,
+            cm.control.fly_mode as u32,
+            (cm.sensor.turn_rate.to_rad_s().abs() * 1000.0) as u32,
+            (cm.sensor.gps_ground_speed.to_m_s() * 10.0) as u32,
+        );
+        cc.last_logged_fly_mode = cm.control.fly_mode;
+    }
+
     let is_circling = cm.control.fly_mode == FlyMode::Circling;
 
     // Circle diameter: D = 2 * v / omega (only meaningful in circling)
@@ -151,6 +162,17 @@ fn can_heartbeat(cm: &mut CoreModel, cc: &mut CoreController) {
         SystemState::NoCom
     };
     cm.control.can_devices = 0;
+
+    if cm.sensor.gps_state != cc.last_logged_gps_state {
+        cc.event_log(
+            EventLogCode::GpsStateChanged,
+            cc.last_logged_gps_state as u32,
+            cm.sensor.gps_state as u32,
+            cm.sensor.gps_sats as u32,
+            0,
+        );
+        cc.last_logged_gps_state = cm.sensor.gps_state;
+    }
 
     let _ = cc.scheduler.chain(set_date_time);
 }

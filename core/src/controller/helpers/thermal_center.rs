@@ -4,10 +4,7 @@ use heapless::Vec;
 #[allow(unused_imports)]
 use micromath::F32Ext;
 
-use crate::{
-    model::GpsState,
-    CoreModel,
-};
+use crate::{model::GpsState, CoreModel};
 
 const TWO_PI: f32 = 2.0 * PI;
 const EARTH_RADIUS_M: f64 = 6_371_000.0;
@@ -33,6 +30,28 @@ pub struct ThermalShiftEstimate {
     pub valid: bool,
 }
 
+#[derive(Clone, Copy)]
+pub struct ThermalLogEvent {
+    pub kind: ThermalLogEventKind,
+    pub a: u32,
+    pub b: u32,
+    pub c: u32,
+    pub d: u32,
+}
+
+#[derive(Clone, Copy)]
+pub enum ThermalLogEventKind {
+    Reset,
+    CircleComplete,
+    EstimateValid,
+    EstimateInvalid,
+}
+
+pub struct ThermalUpdateResult {
+    pub estimate: ThermalShiftEstimate,
+    pub events: Vec<ThermalLogEvent, 3>,
+}
+
 pub struct ThermalCenterTracker {
     samples: Vec<CircleSample, MAX_SAMPLES>,
     ref_lat_rad: f64,
@@ -43,6 +62,7 @@ pub struct ThermalCenterTracker {
     smoothed_shift_east_m: f32,
     smoothed_shift_north_m: f32,
     initialized: bool,
+    last_valid: bool,
 }
 
 impl Default for ThermalCenterTracker {
@@ -57,18 +77,35 @@ impl Default for ThermalCenterTracker {
             smoothed_shift_east_m: 0.0,
             smoothed_shift_north_m: 0.0,
             initialized: false,
+            last_valid: false,
         }
     }
 }
 
 impl ThermalCenterTracker {
-    pub fn update(&mut self, cm: &CoreModel, is_circling: bool) -> ThermalShiftEstimate {
-        if !is_circling
-            || cm.sensor.gps_state == GpsState::NoGps
-            || cm.sensor.gps_ground_speed.to_m_s() < MIN_GROUND_SPEED_MPS
-        {
-            self.reset_circle();
-            return ThermalShiftEstimate::default();
+    pub fn update(&mut self, cm: &CoreModel, is_circling: bool) -> ThermalUpdateResult {
+        let mut events = Vec::<ThermalLogEvent, 3>::new();
+
+        if !is_circling {
+            self.reset_circle(&mut events, 1);
+            return ThermalUpdateResult {
+                estimate: ThermalShiftEstimate::default(),
+                events,
+            };
+        }
+        if cm.sensor.gps_state == GpsState::NoGps {
+            self.reset_circle(&mut events, 2);
+            return ThermalUpdateResult {
+                estimate: ThermalShiftEstimate::default(),
+                events,
+            };
+        }
+        if cm.sensor.gps_ground_speed.to_m_s() < MIN_GROUND_SPEED_MPS {
+            self.reset_circle(&mut events, 3);
+            return ThermalUpdateResult {
+                estimate: ThermalShiftEstimate::default(),
+                events,
+            };
         }
 
         let lat = cm.sensor.gps_lat.0.to_rad();
@@ -86,11 +123,7 @@ impl ThermalCenterTracker {
         }
 
         let (east_m, north_m) = local_xy_m(self.ref_lat_rad, self.ref_lon_rad, lat, lon);
-        let _ = self.samples.push(CircleSample {
-            east_m,
-            north_m,
-            climb,
-        });
+        let _ = self.samples.push(CircleSample { east_m, north_m, climb });
 
         let mut circle_completed = false;
         if let Some(last_yaw) = self.last_yaw_rad {
@@ -103,10 +136,13 @@ impl ThermalCenterTracker {
         self.last_yaw_rad = Some(yaw);
 
         if !circle_completed {
-            return ThermalShiftEstimate::default();
+            return ThermalUpdateResult {
+                estimate: ThermalShiftEstimate::default(),
+                events,
+            };
         }
 
-        let result = self.finalize_circle();
+        let estimate = self.finalize_circle(&mut events);
 
         self.ref_lat_rad = lat;
         self.ref_lon_rad = lon;
@@ -114,10 +150,10 @@ impl ThermalCenterTracker {
         self.accumulated_turn_rad = 0.0;
         self.samples.clear();
 
-        result
+        ThermalUpdateResult { estimate, events }
     }
 
-    fn finalize_circle(&mut self) -> ThermalShiftEstimate {
+    fn finalize_circle(&mut self, events: &mut Vec<ThermalLogEvent, 3>) -> ThermalShiftEstimate {
         if self.samples.len() < MIN_SAMPLES_PER_CIRCLE {
             return ThermalShiftEstimate::default();
         }
@@ -173,21 +209,55 @@ impl ThermalCenterTracker {
         let coverage = (self.samples.len() as f32 / 32.0).clamp(0.0, 1.0);
         let signal = (weight_sum / (count.max(1.0) * 0.6)).clamp(0.0, 1.0);
         let confidence = coverage.min(signal);
+        let valid = confidence > 0.1 && distance_m > 1.0;
+
+        let _ = events.push(ThermalLogEvent {
+            kind: ThermalLogEventKind::CircleComplete,
+            a: self.samples.len() as u32,
+            b: (distance_m * 10.0) as u32,
+            c: (confidence * 1000.0) as u32,
+            d: 0,
+        });
+
+        if valid != self.last_valid {
+            let _ = events.push(ThermalLogEvent {
+                kind: if valid {
+                    ThermalLogEventKind::EstimateValid
+                } else {
+                    ThermalLogEventKind::EstimateInvalid
+                },
+                a: (self.smoothed_shift_east_m * 10.0).abs() as u32,
+                b: (self.smoothed_shift_north_m * 10.0).abs() as u32,
+                c: (distance_m * 10.0) as u32,
+                d: (confidence * 1000.0) as u32,
+            });
+            self.last_valid = valid;
+        }
 
         ThermalShiftEstimate {
             east_m: self.smoothed_shift_east_m,
             north_m: self.smoothed_shift_north_m,
             distance_m,
             confidence,
-            valid: confidence > 0.2 && distance_m > 3.0,
+            valid,
         }
     }
 
-    fn reset_circle(&mut self) {
+    fn reset_circle(&mut self, events: &mut Vec<ThermalLogEvent, 3>, reason: u32) {
+        if self.reference_valid || !self.samples.is_empty() || self.last_valid {
+            let _ = events.push(ThermalLogEvent {
+                kind: ThermalLogEventKind::Reset,
+                a: reason,
+                b: self.samples.len() as u32,
+                c: (self.accumulated_turn_rad.abs().to_degrees()) as u32,
+                d: 0,
+            });
+        }
         self.samples.clear();
         self.reference_valid = false;
         self.last_yaw_rad = None;
         self.accumulated_turn_rad = 0.0;
+        self.last_valid = false;
     }
 }
 

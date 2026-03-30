@@ -10,6 +10,7 @@ use embedded_sdmmc::{Mode, VolumeIdx};
 pub struct ResetWatch {
     signature: u32,
     date_time: DateTime,
+    date_time_valid: bool,
     signature2: u32,
 }
 
@@ -38,6 +39,7 @@ impl ResetWatch {
                 trace!("Initializing panic buffer...");
                 reset_watch.signature = SIGNATURE;
                 reset_watch.date_time = DateTime::new();
+                reset_watch.date_time_valid = false;
                 reset_watch.signature2 = SIGNATURE2;
             }
         }
@@ -60,8 +62,12 @@ impl ResetWatch {
         }
     }
 
-    pub fn date_time(&mut self) -> &mut DateTime {
-        &mut self.date_time
+    pub fn set_date_time_if_valid(&mut self, date_time: DateTime) {
+        let is_default = date_time.to_bytes() == DateTime::new().to_bytes();
+        if !is_default {
+            self.date_time = date_time;
+            self.date_time_valid = true;
+        }
     }
 }
 
@@ -78,9 +84,13 @@ fn write_panic_msg(msg: &[u8]) -> Result<(), CoreError> {
                 .map_err(|_| CoreError::SdCard)?;
 
             let dt = if let Some(rw) = ResetWatch::init() {
-                rw.date_time.to_bytes()
+                if rw.date_time_valid {
+                    rw.date_time.to_bytes()
+                } else {
+                    *b"unknown-time        "
+                }
             } else {
-                DateTime::new().to_bytes()
+                *b"unknown-time        "
             };
 
             file.write(&dt).map_err(|_| CoreError::SdCard)?;

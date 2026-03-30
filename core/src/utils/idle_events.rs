@@ -9,6 +9,7 @@ pub enum IdleEvent {
     RestoreToSandardProfile,
     SdCardItem(SdCardCmd),
     DebugLog(DebugLogRecord),
+    EventLog(EventLogRecord),
     FeedTheDog,
     SetGain(u8),
     DateTime(DateTime),
@@ -78,6 +79,28 @@ pub enum DebugLogCode {
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct DebugLogRecord {
     pub code: DebugLogCode,
+    pub a: u32,
+    pub b: u32,
+    pub c: u32,
+    pub d: u32,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[repr(u8)]
+pub enum EventLogCode {
+    ThermalReset = 1,
+    ThermalCircleComplete = 2,
+    ThermalEstimateValid = 3,
+    ThermalEstimateInvalid = 4,
+    FlyModeChanged = 10,
+    GpsStateChanged = 20,
+    UpdateFound = 30,
+    UpdateInstallStart = 31,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct EventLogRecord {
+    pub code: EventLogCode,
     pub a: u32,
     pub b: u32,
     pub c: u32,
