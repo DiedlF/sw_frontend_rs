@@ -103,10 +103,10 @@ fn update_available_private(fs: &mut FileSys) -> Option<SwVersion> {
         let version = check.new_sw_version();
         let _ = write_event_log(EventLogRecord {
             code: EventLogCode::UpdateFound,
-            a: version.version[0] as u32,
-            b: version.version[1] as u32,
-            c: version.version[2] as u32,
-            d: version.version[3] as u32,
+            a: version.version[0] as i32,
+            b: version.version[1] as i32,
+            c: version.version[2] as i32,
+            d: version.version[3] as i32,
         });
         Some(version)
     } else {
@@ -119,10 +119,10 @@ pub fn install_and_restart() {
     let meta_data = meta_data();
     let _ = write_event_log(EventLogRecord {
         code: EventLogCode::UpdateInstallStart,
-        a: meta_data.new_app,
-        b: meta_data.new_app_len,
-        c: meta_data.new_app_dest,
-        d: meta_data.copy_func,
+        a: meta_data.new_app as i32,
+        b: meta_data.new_app_len as i32,
+        c: meta_data.new_app_dest as i32,
+        d: meta_data.copy_func as i32,
     });
 
     #[cfg(all(target_arch = "arm", target_os = "none"))]

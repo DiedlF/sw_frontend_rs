@@ -107,10 +107,10 @@ fn speed_to_fly(cm: &mut CoreModel, cc: &mut CoreController) {
     if cm.control.fly_mode != cc.last_logged_fly_mode {
         cc.event_log(
             EventLogCode::FlyModeChanged,
-            cc.last_logged_fly_mode as u32,
-            cm.control.fly_mode as u32,
-            (cm.sensor.turn_rate.to_rad_s().abs() * 1000.0) as u32,
-            (cm.sensor.gps_ground_speed.to_m_s() * 10.0) as u32,
+            cc.last_logged_fly_mode as i32,
+            cm.control.fly_mode as i32,
+            (cm.sensor.turn_rate.to_rad_s().abs() * 1000.0) as i32,
+            (cm.sensor.gps_ground_speed.to_m_s() * 10.0) as i32,
         );
         cc.last_logged_fly_mode = cm.control.fly_mode;
     }
@@ -166,9 +166,9 @@ fn can_heartbeat(cm: &mut CoreModel, cc: &mut CoreController) {
     if cm.sensor.gps_state != cc.last_logged_gps_state {
         cc.event_log(
             EventLogCode::GpsStateChanged,
-            cc.last_logged_gps_state as u32,
-            cm.sensor.gps_state as u32,
-            cm.sensor.gps_sats as u32,
+            cc.last_logged_gps_state as i32,
+            cm.sensor.gps_state as i32,
+            cm.sensor.gps_sats as i32,
             0,
         );
         cc.last_logged_gps_state = cm.sensor.gps_state;

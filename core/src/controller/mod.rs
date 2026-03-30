@@ -307,7 +307,7 @@ impl CoreController {
         self.send_idle_event(IdleEvent::DebugLog(DebugLogRecord { code, a, b, c, d }));
     }
 
-    pub fn event_log(&mut self, code: EventLogCode, a: u32, b: u32, c: u32, d: u32) {
+    pub fn event_log(&mut self, code: EventLogCode, a: i32, b: i32, c: i32, d: i32) {
         self.send_idle_event(IdleEvent::EventLog(EventLogRecord { code, a, b, c, d }));
     }
 

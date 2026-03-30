@@ -101,10 +101,10 @@ pub enum EventLogCode {
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct EventLogRecord {
     pub code: EventLogCode,
-    pub a: u32,
-    pub b: u32,
-    pub c: u32,
-    pub d: u32,
+    pub a: i32,
+    pub b: i32,
+    pub c: i32,
+    pub d: i32,
 }
 
 // This queue transports the configuration PersItems from controller to the idle loop.

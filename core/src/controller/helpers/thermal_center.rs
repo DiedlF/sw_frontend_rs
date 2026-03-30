@@ -33,10 +33,10 @@ pub struct ThermalShiftEstimate {
 #[derive(Clone, Copy)]
 pub struct ThermalLogEvent {
     pub kind: ThermalLogEventKind,
-    pub a: u32,
-    pub b: u32,
-    pub c: u32,
-    pub d: u32,
+    pub a: i32,
+    pub b: i32,
+    pub c: i32,
+    pub d: i32,
 }
 
 #[derive(Clone, Copy)]
@@ -213,9 +213,9 @@ impl ThermalCenterTracker {
 
         let _ = events.push(ThermalLogEvent {
             kind: ThermalLogEventKind::CircleComplete,
-            a: self.samples.len() as u32,
-            b: (distance_m * 10.0) as u32,
-            c: (confidence * 1000.0) as u32,
+            a: self.samples.len() as i32,
+            b: (distance_m * 10.0) as i32,
+            c: (confidence * 1000.0) as i32,
             d: 0,
         });
 
@@ -226,10 +226,10 @@ impl ThermalCenterTracker {
                 } else {
                     ThermalLogEventKind::EstimateInvalid
                 },
-                a: (self.smoothed_shift_east_m * 10.0).abs() as u32,
-                b: (self.smoothed_shift_north_m * 10.0).abs() as u32,
-                c: (distance_m * 10.0) as u32,
-                d: (confidence * 1000.0) as u32,
+                a: (self.smoothed_shift_east_m * 10.0) as i32,
+                b: (self.smoothed_shift_north_m * 10.0) as i32,
+                c: (distance_m * 10.0) as i32,
+                d: (confidence * 1000.0) as i32,
             });
             self.last_valid = valid;
         }
@@ -247,9 +247,9 @@ impl ThermalCenterTracker {
         if self.reference_valid || !self.samples.is_empty() || self.last_valid {
             let _ = events.push(ThermalLogEvent {
                 kind: ThermalLogEventKind::Reset,
-                a: reason,
-                b: self.samples.len() as u32,
-                c: (self.accumulated_turn_rad.abs().to_degrees()) as u32,
+                a: reason as i32,
+                b: self.samples.len() as i32,
+                c: self.accumulated_turn_rad.abs().to_degrees() as i32,
                 d: 0,
             });
         }
